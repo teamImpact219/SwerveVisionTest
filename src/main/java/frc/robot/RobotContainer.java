@@ -21,8 +21,10 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 
+import frc.robot.commands.VisionAlignDriveCommand;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
+import frc.robot.subsystems.Vision;
 
 public class RobotContainer {
     private double MaxSpeed = 1.0 * TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
@@ -40,27 +42,36 @@ public class RobotContainer {
     private final CommandXboxController joystick = new CommandXboxController(0);
 
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
+    private final Vision vision = new Vision("YOUR_CAMERA_NAME"); // TODO: Replace with your camera name
 
     public RobotContainer() {
+        // Set which AprilTag to track for auto-alignment
+        vision.setTrackedTagId(7);
 
         NamedCommands.registerCommand("shoot", Commands.runOnce(() -> {
             System.out.println("shooting...");
         }));
 
         drivetrain.configurePathPlanner();
-        
+
         configureBindings();
     }
 
     private void configureBindings() {
         // Note that X is defined as forward according to WPILib convention,
         // and Y is defined as to the left according to WPILib convention.
+        // Uses VisionAlignDriveCommand for vision-assisted driving (hold Right-bumper to auto-align to tag)
         drivetrain.setDefaultCommand(
-            // Drivetrain will execute this command periodically
-            drivetrain.applyRequest(() ->
-                drive.withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
-                    .withVelocityY(-joystick.getLeftX() * MaxSpeed) // Drive left with negative X (left)
-                    .withRotationalRate(-joystick.getRightX() * MaxAngularRate) // Drive counterclockwise with negative X (left)
+            new VisionAlignDriveCommand(
+                drivetrain,
+                vision,
+                drive,
+                () -> -joystick.getLeftY(),  // Forward (negative Y)
+                () -> -joystick.getLeftX(),  // Strafe left (negative X)
+                () -> -joystick.getRightX(), // Rotate counterclockwise (negative X)
+                () -> joystick.getHID().getRightBumperButton(), // Hold right bumper to auto-align
+                MaxSpeed,
+                MaxAngularRate
             )
         );
 

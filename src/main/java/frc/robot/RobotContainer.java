@@ -8,7 +8,6 @@ import static edu.wpi.first.units.Units.*;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
-import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
@@ -43,15 +42,28 @@ public class RobotContainer {
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
     private final VisionSubsystem vision = new VisionSubsystem(drivetrain);
 
-    public RobotContainer() {
+    private final SendableChooser<Command> autoChooser;
 
+    public RobotContainer() {
+        // Named commands must be registered before AutoBuilder is configured
+        registerNamedCommands();
+
+        drivetrain.configurePathPlanner();
+
+        // Automatically finds all .auto files in deploy/pathplanner/autos/
+        // The string argument sets the default selection shown on the dashboard
+        autoChooser = AutoBuilder.buildAutoChooser("ShootOnceAuto");
+        SmartDashboard.putData("Auto Chooser", autoChooser);
+
+        configureBindings();
+    }
+
+    private void registerNamedCommands() {
+        // Register every named command used in PathPlanner autos here.
+        // The string must exactly match the name used in the PathPlanner GUI.
         NamedCommands.registerCommand("shoot", Commands.runOnce(() -> {
             System.out.println("shooting...");
         }));
-
-        drivetrain.configurePathPlanner();
-        
-        configureBindings();
     }
 
     private void configureBindings() {
@@ -92,22 +104,6 @@ public class RobotContainer {
     }
 
     public Command getAutonomousCommand() {
-        // Simple drive forward auton
-        // final var idle = new SwerveRequest.Idle();
-        // return Commands.sequence(
-        //     // Reset our field centric heading to match the robot
-        //     // facing away from our alliance station wall (0 deg).
-        //     drivetrain.runOnce(() -> drivetrain.seedFieldCentric(Rotation2d.kZero)),
-        //     // Then slowly drive forward (away from us) for 5 seconds.
-        //     drivetrain.applyRequest(() ->
-        //         drive.withVelocityX(0.5)
-        //             .withVelocityY(0)
-        //             .withRotationalRate(0)
-        //     )
-        //     .withTimeout(5.0),
-        //     // Finally idle for the rest of auton
-        //     drivetrain.applyRequest(() -> idle)
-        // );
-        return new PathPlannerAuto("ShootOnceAuto");
+        return autoChooser.getSelected();
     }
 }

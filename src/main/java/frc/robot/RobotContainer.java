@@ -11,6 +11,7 @@ import com.pathplanner.lib.auto.NamedCommands;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
+import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -27,6 +28,16 @@ import frc.robot.subsystems.VisionSubsystem;
 public class RobotContainer {
     private double MaxSpeed = 1.0 * TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
     private double MaxAngularRate = RotationsPerSecond.of(0.75).in(RadiansPerSecond); // 3/4 of a rotation per second max angular velocity
+
+    // Slew rate limits for joystick inputs (joystick units per second, range -1 to 1).
+    // Lower values = smoother / slower to respond. Higher values = snappier.
+    // 2.0 → full stick reached in 0.5 s from rest. 1.0 → 1.0 s. 3.0 → 0.33 s.
+    private static final double kTranslationSlewRate = 2.0;
+    private static final double kRotationSlewRate    = 2.0;
+
+    private final SlewRateLimiter xLimiter   = new SlewRateLimiter(kTranslationSlewRate);
+    private final SlewRateLimiter yLimiter   = new SlewRateLimiter(kTranslationSlewRate);
+    private final SlewRateLimiter rotLimiter = new SlewRateLimiter(kRotationSlewRate);
 
     /* Setting up bindings for necessary control of the swerve drive platform */
     private final SwerveRequest.FieldCentric drive = new SwerveRequest.FieldCentric()
@@ -72,9 +83,9 @@ public class RobotContainer {
         drivetrain.setDefaultCommand(
             // Drivetrain will execute this command periodically
             drivetrain.applyRequest(() ->
-                drive.withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
-                    .withVelocityY(-joystick.getLeftX() * MaxSpeed) // Drive left with negative X (left)
-                    .withRotationalRate(-joystick.getRightX() * MaxAngularRate) // Drive counterclockwise with negative X (left)
+                drive.withVelocityX(xLimiter.calculate(-joystick.getLeftY()) * MaxSpeed)
+                    .withVelocityY(yLimiter.calculate(-joystick.getLeftX()) * MaxSpeed)
+                    .withRotationalRate(rotLimiter.calculate(-joystick.getRightX()) * MaxAngularRate)
             )
         );
 
